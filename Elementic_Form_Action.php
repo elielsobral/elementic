@@ -79,10 +79,24 @@
             }
 
 
-            $response = wp_remote_post(rtrim($settings['mautic_url']['url'],"/")."/form/submit?formId=".$settings['mautic_form_id'], [
-                'body' => ["mauticform" => $fields],
-				'headers' => [ 'client_ip' => $_SERVER[ "REMOTE_ADDR" ]]
-            ] );
+            // $response = wp_remote_post(rtrim($settings['mautic_url']['url'],"/")."/form/submit?formId=".$settings['mautic_form_id'], [
+            //    'body' => ["mauticform" => $fields]
+            // ] );
+			
+			$ip = $this->_get_ip();
+			
+			$response = wp_remote_post(
+			rtrim($settings['mautic_url']['url'],"/")."/form/submit?formId=".$settings['mautic_form_id'],
+			array(
+				'method' => 'POST',
+				'timeout' => 45,
+				'headers' => array(
+					'X-Forwarded-For' => $ip,
+				),
+				'body' => ["mauticform" => $fields],
+				'cookies' => array()
+			)
+		);
 
 
             // $message = preg_match('/<div class=\"well text-center\">(.*?)<\/div>/s', $response['body'], $match);
@@ -95,7 +109,39 @@
         }
 
 
-
+		/**
+		 * Get User's IP
+		 *
+		 * @return string
+		 * @since 0.0.1
+		 */
+		private function _get_ip() {
+			$ip_list = [
+				'REMOTE_ADDR',
+				'HTTP_CLIENT_IP',
+				'HTTP_X_FORWARDED_FOR',
+				'HTTP_X_FORWARDED',
+				'HTTP_X_CLUSTER_CLIENT_IP',
+				'HTTP_FORWARDED_FOR',
+				'HTTP_FORWARDED'
+			];
+			foreach ( $ip_list as $key ) {
+				if ( ! isset( $_SERVER[ $key ] ) ) {
+					continue;
+				}
+				$ip = esc_attr( $_SERVER[ $key ] );
+				if ( ! strpos( $ip, ',' ) ) {
+					$ips =  explode( ',', $ip );
+					foreach ( $ips as &$val ) {
+						$val = trim( $val );
+					}
+					$ip = end ( $ips );
+				}
+				$ip = trim( $ip );
+				break;
+			}
+			return $ip;
+		}
 
 
         public function on_export( $element ) {
